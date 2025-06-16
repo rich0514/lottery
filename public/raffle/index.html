@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <title>簡易抽獎程式</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <!-- 引入 SheetJS -->
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: 'Noto Sans TC', sans-serif; background: #F8F1E9; padding: 20px; }
+    .container { max-width: 600px; margin: auto; text-align: center; }
+    input, select, button { margin: 8px 0; padding: 10px; width: 100%; max-width: 300px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { border: 1px solid #CCC; padding: 8px; vertical-align: top; }
+    th { background: #EEE; }
+    /* 讓 cell 內容超長時自動換行 */
+    td {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>抽獎程式</h1>
+    <p>上傳名單檔案（Excel 或 CSV）：</p>
+    <input type="file" id="fileInput" accept=".xlsx,.csv" />
+    <p>抽出名額：</p>
+    <select id="numWinners">
+      <option value="1">1 人</option>
+      <option value="2">2 人</option>
+      <option value="3" selected>3 人</option>
+      <option value="5">5 人</option>
+      <option value="10">10 人</option>
+    </select>
+    <button id="drawBtn" disabled>🎉 開始抽獎</button>
+    <table id="resultTable" style="display:none;">
+      <thead id="tblHead"></thead>
+      <tbody id="tblBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    let records = [], numericCols = {};
+
+    document.getElementById('fileInput').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      records = XLSX.utils.sheet_to_json(ws);
+      if (records.length) {
+        analyzeColumns(records);
+        document.getElementById('drawBtn').disabled = false;
+        alert(`已載入 ${records.length} 筆資料`);
+      }
+    });
+
+    document.getElementById('drawBtn').addEventListener('click', () => {
+      const n = +document.getElementById('numWinners').value;
+      const winners = [];
+      const copy = [...records];
+      for (let i = 0; i < Math.min(n, copy.length); i++) {
+        const idx = Math.floor(Math.random() * copy.length);
+        winners.push(copy.splice(idx, 1)[0]);
+      }
+      renderTable(winners);
+    });
+
+    function analyzeColumns(data) {
+      // 只判斷哪些欄位是純數值，用於調整寬度
+      const cols = Object.keys(data[0]);
+      cols.forEach(col => {
+        numericCols[col] = data.every(r => !isNaN(parseFloat(r[col])));
+      });
+    }
+
+    function renderTable(data) {
+      const head = document.getElementById('tblHead'),
+            body = document.getElementById('tblBody');
+      head.innerHTML = ''; body.innerHTML = '';
+      if (!data.length) return;
+      const cols = Object.keys(data[0]);
+
+      // 表頭
+      const trh = document.createElement('tr');
+      cols.forEach(c => {
+        const th = document.createElement('th');
+        th.textContent = c;
+        trh.appendChild(th);
+      });
+      head.appendChild(trh);
+
+      // 計算數值欄位的最小/最大值（用於寬度）
+      const stats = {};
+      cols.forEach(c => {
+        if (numericCols[c]) {
+          const nums = data.map(r => parseFloat(r[c]));
+          stats[c] = { min: Math.min(...nums), max: Math.max(...nums) };
+        }
+      });
+
+      // 資料列
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        cols.forEach(c => {
+          let v = row[c];
+          const td = document.createElement('td');
+
+          // 超過 30 字，自動每 30 字插入換行
+          if (typeof v === 'string' && v.length > 30) {
+            v = v.match(/.{1,30}/g).join('\n');
+          }
+
+          td.textContent = v;
+
+          // 如果是數值欄位，根據大小調整寬度
+          if (numericCols[c]) {
+            const num = parseFloat(row[c]);
+            const { min, max } = stats[c];
+            const w = (min === max) ? 100 : 50 + ((num - min) / (max - min)) * 150;
+            td.style.width = w + 'px';
+          }
+
+          tr.appendChild(td);
+        });
+        body.appendChild(tr);
+      });
+
+      document.getElementById('resultTable').style.display = 'table';
+    }
+  </script>
+</body>
+</html>
