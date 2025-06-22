@@ -85,6 +85,40 @@
     - .ad-flex column-gap 控制廣告欄與主程式的間距。
     - .main-center max-width 及 padding 控制主程式區域寬度與左右留白。
     */
+    @media (max-width: 900px) {
+      .ad-flex {
+        flex-direction: column;
+        align-items: center;
+        column-gap: 0;
+      }
+      .ad-column {
+        flex-direction: row;
+        width: 100%;
+        gap: 12px;
+        margin-top: 12px;
+        justify-content: center;
+      }
+      .ad-card {
+        width: 45vw;
+        max-width: 180px;
+        height: auto;
+        min-width: 120px;
+      }
+      .main-center {
+        max-width: 98vw;
+        padding-left: 4vw;
+        padding-right: 4vw;
+      }
+      .ad-card img {
+        max-width: 100%;
+        height: auto;
+      }
+    }
+    /*
+    RWD 響應式設計：
+    - 螢幕寬度小於 900px 時，廣告欄橫向排列，卡片縮小，主程式寬度自適應。
+    - 桌面版排版不受影響。
+    */
   </style>
 </head>
 <body>
