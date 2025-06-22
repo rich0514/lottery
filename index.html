@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <title>簡易抽獎程式</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <!-- 引入 SheetJS -->
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: 'Noto Sans TC', sans-serif; background: #F8F1E9; padding: 20px; }
+    .container { max-width: 600px; margin: auto; text-align: center; }
+    input, select, button { margin: 8px 0; padding: 10px; width: 100%; max-width: 300px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { border: 1px solid #CCC; padding: 8px; vertical-align: top; }
+    th { background: #EEE; }
+    /* 讓 cell 內容超長時自動換行 */
+    td {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .ad-flex {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: flex-start;
+      width: 100vw;
+      min-height: 100vh;
+      box-sizing: border-box;
+      column-gap: 40px; /* 左右廣告欄與主程式的間距 */
+    }
+    .ad-column {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      width: 300px; /* 廣告欄寬度，可依需求調整 */
+      align-items: center;
+      margin-top: 40px;
+    }
+    .ad-card {
+      width: 250px; /* 廣告卡片寬度 */
+      height: 280px; /* 廣告卡片高度 */
+      background: #ffe9c6;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px #0001;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1em;
+      color: #b97a00;
+      font-weight: bold;
+      border: 2px solid #f7b731;
+    }
+    .ad-card img {
+      max-width: 240px; /* 設定圖片最大寬度 */
+      max-height: 240px; /* 設定圖片最大高度 */
+      width: auto; /* 圖片寬度自動 */
+      height: auto; /* 圖片高度自動 */
+      display: block;
+      margin: 12px auto 2px auto; /* 圖片上下留白，置中 */
+      border-radius: 8px; /* 圓角，可依需求調整 */
+      /* 你可以加上 box-shadow 或 border 等效果 */
+    }
+    .ad-card .ad-text {
+      color: #b97a00;         /* 廣告文字顏色，可依需求調整 */
+      text-align: center;    /* 廣告文字置中 */
+      width: 100%;           /* 讓置中生效 */
+      margin-top: 0px;       /* 圖片與文字間距 */
+      font-size: 1em;        /* 字體大小可調整 */
+      font-weight: bold;     /* 字體粗細可調整 */
+    }
+    .main-center {
+      flex: 1 1 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 0;
+      max-width: 800px; /* 主程式最大寬度 */
+      padding-left: 24px; /* 主程式左右留白 */
+      padding-right: 24px;
+    }
+    /*
+    說明：
+    - .ad-column width 控制左右廣告欄寬度。
+    - .ad-card width/height 控制每張廣告卡片大小。
+    - .ad-flex column-gap 控制廣告欄與主程式的間距。
+    - .main-center max-width 及 padding 控制主程式區域寬度與左右留白。
+    */
+    @media (max-width: 900px) {
+      .ad-flex {
+        flex-direction: column;
+        align-items: center;
+        column-gap: 0;
+      }
+      .ad-column {
+        flex-direction: row;
+        width: 100%;
+        gap: 12px;
+        margin-top: 12px;
+        justify-content: center;
+      }
+      .ad-card {
+        width: 45vw;
+        max-width: 180px;
+        height: auto;
+        min-width: 120px;
+      }
+      .main-center {
+        max-width: 98vw;
+        padding-left: 4vw;
+        padding-right: 4vw;
+      }
+      .ad-card img {
+        max-width: 100%;
+        height: auto;
+      }
+    }
+    /*
+    RWD 響應式設計：
+    - 螢幕寬度小於 900px 時，廣告欄橫向排列，卡片縮小，主程式寬度自適應。
+    - 桌面版排版不受影響。
+    */
+  </style>
+</head>
+<body>
+  <div class="ad-flex">
+    <div class="ad-column">
+      <div class="ad-card"><a id="ad1" href="#" target="_blank"><img><div class="ad-text"></div></a></div>
+      <div class="ad-card"><a id="ad2" href="#" target="_blank"><img><div class="ad-text"></div></a></div>
+      <div class="ad-card"><a id="ad3" href="#" target="_blank"><img><div class="ad-text"></div></a></div>
+    </div>
+    <div class="main-center">
+      <div class="container">
+        <h1>抽獎程式</h1>
+        <p>上傳名單檔案（Excel 或 CSV）：</p>
+        <input type="file" id="fileInput" accept=".xlsx,.csv" />
+        <p>抽出名額：</p>
+        <select id="numWinners">
+          <option value="1">1 人</option>
+          <option value="2">2 人</option>
+          <option value="3" selected>3 人</option>
+          <option value="5">5 人</option>
+          <option value="10">10 人</option>
+        </select>
+        <button id="drawBtn" disabled>🎉 開始抽獎</button>
+        <table id="resultTable" style="display:none;">
+          <thead id="tblHead"></thead>
+          <tbody id="tblBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="ad-column">
+      <div class="ad-card"><a id="ad4" href="#" target="_blank"><img><div class="ad-text"></div></a></div>
+      <div class="ad-card"><a id="ad5" href="#" target="_blank"><img><div class="ad-text"></div></a></div>
+      <div class="ad-card"><a id="ad6" href="#" target="_blank"><img><div class="ad-text"></div></a></div>
+    </div>
+  </div>
+
+  <script>
+    let records = [], numericCols = {};
+
+    document.getElementById('fileInput').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      records = XLSX.utils.sheet_to_json(ws);
+      if (records.length) {
+        analyzeColumns(records);
+        document.getElementById('drawBtn').disabled = false;
+        alert(`已載入 ${records.length} 筆資料`);
+      }
+    });
+
+    document.getElementById('drawBtn').addEventListener('click', () => {
+      const n = +document.getElementById('numWinners').value;
+      const winners = [];
+      const copy = [...records];
+      for (let i = 0; i < Math.min(n, copy.length); i++) {
+        const idx = Math.floor(Math.random() * copy.length);
+        winners.push(copy.splice(idx, 1)[0]);
+      }
+      renderTable(winners);
+    });
+
+    function analyzeColumns(data) {
+      // 只判斷哪些欄位是純數值，用於調整寬度
+      const cols = Object.keys(data[0]);
+      cols.forEach(col => {
+        numericCols[col] = data.every(r => !isNaN(parseFloat(r[col])));
+      });
+    }
+
+    function renderTable(data) {
+      const head = document.getElementById('tblHead'),
+            body = document.getElementById('tblBody');
+      head.innerHTML = ''; body.innerHTML = '';
+      if (!data.length) return;
+      const cols = Object.keys(data[0]);
+
+      // 表頭
+      const trh = document.createElement('tr');
+      cols.forEach(c => {
+        const th = document.createElement('th');
+        th.textContent = c;
+        trh.appendChild(th);
+      });
+      head.appendChild(trh);
+
+      // 計算數值欄位的最小/最大值（用於寬度）
+      const stats = {};
+      cols.forEach(c => {
+        if (numericCols[c]) {
+          const nums = data.map(r => parseFloat(r[c]));
+          stats[c] = { min: Math.min(...nums), max: Math.max(...nums) };
+        }
+      });
+
+      // 資料列
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        cols.forEach(c => {
+          let v = row[c];
+          const td = document.createElement('td');
+
+          // 超過 30 字，自動每 30 字插入換行
+          if (typeof v === 'string' && v.length > 30) {
+            v = v.match(/.{1,30}/g).join('\n');
+          }
+
+          td.textContent = v;
+
+          // 如果是數值欄位，根據大小調整寬度
+          if (numericCols[c]) {
+            const num = parseFloat(row[c]);
+            const { min, max } = stats[c];
+            const w = (min === max) ? 100 : 50 + ((num - min) / (max - min)) * 150;
+            td.style.width = w + 'px';
+          }
+
+          tr.appendChild(td);
+        });
+        body.appendChild(tr);
+      });
+
+      document.getElementById('resultTable').style.display = 'table';
+    }
+
+    // 廣告輪播設定（含圖片、連結、文字）
+    const adContents = [
+      [
+        {img:'https://live.staticflickr.com/65535/54606029335_f4d9186d32_b.jpg', url:'https://www.instagram.com/creating_.for_.life/', text:'原創插畫T恤'},
+        {img:'https://live.staticflickr.com/65535/54605530231_3024c4019b_b.jpg', url:'https://www.instagram.com/creating_.for_.life/', text:'灰，黑，米，白'},
+        {img:'https://live.staticflickr.com/65535/54605773608_581c118706_b.jpg', url:'https://www.instagram.com/creating_.for_.life/', text:'四色可選'},
+        {img:'https://live.staticflickr.com/65535/54605797900_8f4ea97dba_b.jpg', url:'https://www.instagram.com/creating_.for_.life/', text:'隨心所欲'},
+      ],
+      [
+        {img:'https://live.staticflickr.com/65535/54606008995_bf02f21af4_b.jpg', url:'https://www.instagram.com/donoteat2024/', text:''},
+        {img:'https://live.staticflickr.com/65535/54604833677_66dddb57a2_b.jpg', url:'https://www.instagram.com/9899_club/', text:''},
+      ],
+      [
+        {img:'https://live.staticflickr.com/65535/54604833662_1c25afc921_b.jpg', url:'https://www.instagram.com/guagua.forest/', text:''},
+        {img:'https://live.staticflickr.com/65535/54605919188_03eaf06369_b.jpg', url:'https://www.instagram.com/orderzoos/', text:''}
+      ],
+      [
+        {img:'https://live.staticflickr.com/65535/54606008885_5114c93221_b.jpg', url:'https://www.instagram.com/shuyuflower/', text:''},
+        {img:'https://live.staticflickr.com/65535/54605707901_fb2c82505a_b.jpg', url:'https://www.instagram.com/moonheart726/', text:''}
+      ],
+      [
+        {img:'https://live.staticflickr.com/65535/54605904149_16282d9950_b.jpg', url:'https://www.instagram.com/zoedoit.macrame/', text:''},
+        {img:'https://live.staticflickr.com/65535/54606008990_7e56f48383_b.jpg', url:'https://www.instagram.com/chin.chin515/', text:''}
+      ],
+      [
+        {img:'https://live.staticflickr.com/65535/54606009000_d6716bbcac_b.jpg', url:'https://www.instagram.com/___orangeeee/', text:''},
+        {img:'https://live.staticflickr.com/65535/54605707826_322bf6d01c_b.jpg', url:'https://www.instagram.com/green_tea_is_me/', text:''}
+      ]
+    ];
+    const adLinks = [
+      document.getElementById('ad1'),
+      document.getElementById('ad2'),
+      document.getElementById('ad3'),
+      document.getElementById('ad4'),
+      document.getElementById('ad5'),
+      document.getElementById('ad6')
+    ];
+    let adIndex = [0,0,0,0,0,0];
+    function updateAds() {
+      for(let i=0;i<6;i++) {
+        const ad = adContents[i][adIndex[i]];
+        adLinks[i].href = ad.url;
+        adLinks[i].querySelector('img').src = ad.img;
+        adLinks[i].querySelector('.ad-text').textContent = ad.text;
+      }
+    }
+    updateAds();
+    setInterval(() => {
+      for(let i=0;i<6;i++) {
+        adIndex[i] = (adIndex[i]+1)%adContents[i].length;
+      }
+      updateAds();
+    }, 3000); // 每3秒輪播
+  </script>
+</body>
+</html>
